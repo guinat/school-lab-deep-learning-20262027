@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.25.0"
+__generated_with = "0.25.1"
 app = marimo.App(
     width="medium",
     app_title="TD 1 - Vision avancée et transfer learning",
@@ -377,9 +377,11 @@ def _(mo):
     mo.md(r"""
     **Votre réponse :**
 
-    1. ...
-    2. ...
-    3. ...
+    1. C'est relatif, dans la mesure ou on considere que les modeles sont d'accord si le top 1 est le meme pour chacuns des 3 modeles, pour l'image chat oui, pour le café oui, astronaute non, fusée non. Quand ils se trompent on peut considerer que l'erreur est raisonable car les % sont plus ou moins faible => Si ils se trompent, ils ne sont pas certains d'avoir raison.
+
+    2. Un niveau de confiance tres faible, c'est ce que j'explique dans la réponse précédente, ils ne connaissent pas donc il y a un % tres faible pour l'astronaute. On peut en déduire qu'en production, l'usage d'un score de confiance est utile pour dire "je suis sur a x% que cette image est un y". Si on prenait comme vrai resultat le score predit pour le top 1, peu importe son %, on pourrait avoir de nombreuses erreurs a la place de dire "je sais pas".
+
+    3. En moyenne, DeiT-Tiny est plus rapide que ResNet-18 qui est plus rapide que EfficientNet-B0, je deploie ResNet car meilleure prédiction pour la fusée dans le Top 3 (space shuttle, 13 %) et est le 2eme plus rapide. EfficientNet-B0 est aussi une option car meilleure prédiction pour la fusée (missile, 27 %).
     """)
     return
 
@@ -447,9 +449,21 @@ def _(mo):
     teste si le modèle a un attribut `fc`, ce qui permet d'écrire une seule fonction pour les trois modèles.
 
     - ResNet-18 (torchvision) : la tête s'appelle `fc`
-    - EfficientNet-B0 (torchvision) : ?
-    - DeiT-tiny (timm) : ?
+    - EfficientNet-B0 (torchvision) : **classifier**
+    - DeiT-tiny (timm) : **head**
     """)
+    return
+
+
+@app.cell
+def _(tp):
+    [n for n, _ in tp.charger_modele("efficientnet_b0").named_children()]
+    return
+
+
+@app.cell
+def _(tp):
+    [n for n, _ in tp.charger_modele("deit_tiny").named_children()]
     return
 
 
@@ -458,8 +472,17 @@ def _(nn):
     def retirer_tete(modele):
         """Remplace la couche de classification par nn.Identity() et renvoie le modèle."""
         # TODO 1 : trouvez la tête de classification et remplacez-la par nn.Identity().
-        # La même fonction doit marcher pour les trois modèles.
-        raise NotImplementedError("À compléter")
+        if hasattr(modele, "fc"):
+            modele.fc = nn.Identity()
+
+        elif hasattr(modele, "classifier"):
+            modele.classifier = nn.Identity()
+
+        elif hasattr(modele, "head"):
+            modele.head = nn.Identity()
+
+        return modele
+
     return (retirer_tete,)
 
 
@@ -605,13 +628,14 @@ def _(mo):
 
 
 @app.cell
-def _(np):
+def _():
     from skimage.feature import hog
 
     def descripteurs_classiques(image):
         """image : PIL.Image -> vecteur numpy de longueur 1812 (HOG + histogrammes de couleur)."""
         # TODO 2
         raise NotImplementedError("À compléter")
+
     return (descripteurs_classiques,)
 
 
@@ -665,7 +689,7 @@ def _(
 def _(mo, resultat_classique, resultats_fe, tp):
     tableau_comparatif = [resultat_classique] + list(resultats_fe)
     mo.vstack([mo.md(f"Hasard : {1 / 37:.1%} (37 classes)."), tp.tableau(tableau_comparatif, mo)])
-    return (tableau_comparatif,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -748,17 +772,15 @@ def _(mo):
     return
 
 
-@app.cell
-def _(torch):
-    def creer_optimiseur(modele, lr_tete, lr_backbone):
-        """Renvoie un AdamW avec un learning rate pour la tête et un autre pour le backbone dégelé."""
-        # TODO 4
-        raise NotImplementedError("À compléter")
-    return (creer_optimiseur,)
+@app.function
+def creer_optimiseur(modele, lr_tete, lr_backbone):
+    """Renvoie un AdamW avec un learning rate pour la tête et un autre pour le backbone dégelé."""
+    # TODO 4
+    raise NotImplementedError("À compléter")
 
 
 @app.cell(hide_code=True)
-def _(creer_optimiseur, mo, ok_todo3, tests, tp):
+def _(mo, ok_todo3, tests, tp):
     tp.bloquer_si(not ok_todo3, mo, "Terminez le TODO 3 d'abord.")
     ok_todo4, _affichage = tp.verifier(tests.tests_optimiseur(creer_optimiseur, geler_backbone), mo)
     _affichage
@@ -847,7 +869,6 @@ def _(
     cfg_lr_backbone,
     cfg_lr_tete,
     classes,
-    creer_optimiseur,
     img_tr,
     img_va,
     mo,
@@ -974,7 +995,17 @@ def _(bouton_test, classes, img_te, mo, modele_ft, np, tp, y_te):
 
 
 @app.cell(hide_code=True)
-def _(descripteurs_classiques, historique_ft, img_te, mo, np, pred_ft, svm_classique, tp, y_te):
+def _(
+    descripteurs_classiques,
+    historique_ft,
+    img_te,
+    mo,
+    np,
+    pred_ft,
+    svm_classique,
+    tp,
+    y_te,
+):
     _ds = tp.DatasetImages(img_te, y_te, transform=lambda x: x)
     _f_te = np.stack([descripteurs_classiques(_ds.image_brute(i)) for i in range(len(_ds))])
     _acc_classique = float(np.mean(svm_classique.predict(_f_te) == np.asarray(y_te)))
@@ -1080,36 +1111,23 @@ def _(mo):
     return
 
 
-@app.cell
-def _(torch):
-    def grad_cam(modele, couche, image, classe=None):
-        """image : tenseur (1, 3, H, W). Renvoie une carte numpy (h, w) dans [0, 1] pour `classe`
-        (par défaut, la classe prédite)."""
-        # TODO 7
-        raise NotImplementedError("À compléter")
-    return (grad_cam,)
+@app.function
+def grad_cam(modele, couche, image, classe=None):
+    """image : tenseur (1, 3, H, W). Renvoie une carte numpy (h, w) dans [0, 1] pour `classe`
+    (par défaut, la classe prédite)."""
+    # TODO 7
+    raise NotImplementedError("À compléter")
 
 
 @app.cell(hide_code=True)
-def _(grad_cam, mo, tests, tp):
+def _(mo, tests, tp):
     ok_todo7, _affichage = tp.verifier(tests.tests_gradcam(grad_cam), mo)
     _affichage
     return (ok_todo7,)
 
 
 @app.cell
-def _(
-    classes,
-    ds_test_ft,
-    grad_cam,
-    mo,
-    modele_ft,
-    np,
-    ok_todo7,
-    pred_ft,
-    tp,
-    y_te,
-):
+def _(classes, ds_test_ft, mo, modele_ft, np, ok_todo7, pred_ft, tp, y_te):
     tp.bloquer_si(not ok_todo7, mo, "Terminez le TODO 7 pour appliquer Grad-CAM.")
     for _p in modele_ft.parameters():
         _p.requires_grad_(True)  # nécessaire si une partie du réseau était gelée
@@ -1165,17 +1183,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(
-    Image,
-    classes,
-    grad_cam,
-    mo,
-    modele_ft,
-    ok_todo7,
-    plt,
-    televersement,
-    tp,
-):
+def _(Image, classes, mo, modele_ft, ok_todo7, plt, televersement, tp):
     import io as _io
 
     mo.stop(not televersement.value, mo.md("En attente d'une image."))
