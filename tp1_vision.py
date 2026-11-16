@@ -1364,16 +1364,16 @@ def _(mo):
 @app.cell
 def _(mo):
     mo.md(r"""
-    | Rubrique | Votre réponse |
+    | Rubrique | Votre reponse |
     |---|---|
-    | Problème métier | Reconnaître la race d'un animal à partir d'une photo |
-    | Baseline classique et son score (test) | ... |
-    | Modèle retenu et pourquoi | ... |
-    | Métrique principale et score obtenu (test, avec son intervalle à 95 %) | ... |
-    | Coût (temps d'entraînement, temps d'inférence, matériel) | ... |
-    | Principaux cas d'échec | ... |
-    | Le deep learning est-il justifié ici ? | ... |
-    | Déployable en l'état ? Sinon, que manque-t-il ? | ... |
+    | Probleme metier | Reconnaitre la race d'un chat ou d'un chien parmi 37 races a partir d'une photo. |
+    | Baseline classique et son score (test) | Descripteurs HOG + histogrammes de couleurs avec un SVM. Accuracy de 10.1% sur les 555 images de test. |
+    | Modele retenu et pourquoi | EfficientNet-B0 pre-entraine avec 2 etages degeles et 3 epoques d'entrainement. Cette configuration obtient le meilleur score parmi les deux reglages de fine-tuning compares : 78.1% en validation contre 74.3% avec la tete seule. |
+    | Metrique principale et score obtenu (test avec intervalle a 95%) | Accuracy de 77.3% sur 555 images. Intervalle de confiance approximatif a 95% : [73.8%; 80.8%] soit environ +/-3.5 points. L'accuracy convient ici car les classes du test sont equilibrees. |
+    | Cout (temps d'entrainement et d'inference et materiel) | 151 secondes pour 3 epoques avec la validation comprise selon le releve de l'etape 6. Le temps d'inference du modele final reste a mesurer. Le materiel utilise est a relever dans l'etape 0. |
+    | Principaux cas d'echec | Confusions entre races proches notamment British Shorthair -> Russian Blue et English Setter -> English Cocker Spaniel. Certaines cartes Grad-CAM mettent aussi en evidence le decor. Le modele attribue une race meme aux images sans chat ni chien. |
+    | Le deep learning est-il justifie ici ? | Oui. Le modele atteint 77.3% sur le test contre 10.1% pour la baseline soit un gain de 67.2 points d'accuracy. Le transfert d'apprentissage apporte donc une amelioration importante dans cette experience. |
+    | Deployable en l'etat ? Sinon que manque-t-il ? | Non. Le modele reste un prototype. Il faudrait le tester sur des photos d'utilisateurs variees et prevoir un mecanisme de rejet pour les images inconnues ou les predictions incertaines. Il faudrait aussi mesurer la latence sur le materiel cible. Les ameliorations seraient choisies sur la validation puis evaluees sur un nouveau jeu de test independant. |
     """)
     return
 
