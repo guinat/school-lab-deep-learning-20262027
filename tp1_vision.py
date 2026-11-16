@@ -599,8 +599,8 @@ def _(mo):
     mo.md(r"""
     **Votre réponse :**
 
-    1. ...
-    2. ...
+    1. efficientnet_b0 donne les meilleurs embeddings avec une accuracy de validation de 94.6%, c'est celui qui a le moins de parametres.
+    2. efficientnet_b0 offre le meilleur compromis pour une machine sans GPU. Il obtient la meilleure accuracy (94,6 %) avec un temps de calcul de 69 ms/image et seulement 4m de parametres. deit_tiny est le plus rapide mais son accuracy est plus faible (91,9 %). efficientnet_b0 représente donc le meilleur equilibre entre precision et temps de calcul et taille du modèle.
     """)
     return
 
@@ -628,13 +628,41 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(np):
     from skimage.feature import hog
 
     def descripteurs_classiques(image):
         """image : PIL.Image -> vecteur numpy de longueur 1812 (HOG + histogrammes de couleur)."""
-        # TODO 2
-        raise NotImplementedError("À compléter")
+
+        image = image.convert("RGB").resize((128, 128))
+        img = np.array(image)
+        gris = np.array(image.convert("L")) / 255.0
+        descripteur_hog = hog(
+            gris,
+            orientations=9,
+            pixels_per_cell=(16, 16),
+            cells_per_block=(2, 2)
+        )
+
+        histogrammes = []
+
+        for canal in range(3):
+            hist, _ = np.histogram(
+                img[:, :, canal],
+                bins=16,
+                range=(0, 256)
+            )
+
+            hist = hist / hist.sum()
+
+            histogrammes.extend(hist)
+
+        descripteur = np.concatenate([
+            descripteur_hog,
+            histogrammes
+        ])
+
+        return descripteur
 
     return (descripteurs_classiques,)
 
@@ -710,9 +738,9 @@ def _(mo):
     mo.md(r"""
     **Votre réponse :**
 
-    1. ...
-    2. ...
-    3. ...
+    1. Le deep learning obtient de bien meilleurs resultats que la baseline. efficientnet_b0 atteint 94.6% d'accuracy contre seulement 15.4% pour la baseline SVM soit un écart de 79.2. On remarqye quand meme que la baseline est beaucoup plus rapide (12.1 ms/image contre 69 ms/image pour efficientnet_b0). Dans notre cas le cout de calcul supplementaire du DL est justifié par l'amelioration de la precision.
+    2. Les descripteurs HOG et les histogrammes de couleurs peuvent distinguer des races ayant des caracteristiques visuelles tres differentes. Cependant ils peuvent rencontrer des difficultes pour differencier deux races proches car elles peuvent partager des formes et des contours et des couleurs similaires. On peut donc supposer que les confusions seront plus frequentes entre les races ayant une apparence similaire.
+    3. Une baseline classique pourrait etre suffisante pour un probleme de tri industriel d'objets ayant des caracteristiques visuelles tres differentes par exemple trier des fruits selon leur couleur et leur forme. Dans ce cas les histogrammes de couleurs et HOG pourraient permettre de distinguer les categories sans avoir besoin d'un reseau de neurones. Cette solution serait interessante car elle est rapide et necessite moins de ressources informatiques...
     """)
     return
 
