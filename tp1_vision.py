@@ -1130,7 +1130,22 @@ def _(mo):
 def paires_les_plus_confondues(matrice, noms, k=5):
     """matrice[i, j] = nombre d'images de classe i prédites j. Renvoie [(nom_i, nom_j, nombre), ...]."""
     # TODO 6
-    raise NotImplementedError("À compléter")
+    paires = []
+
+    for i in range(len(noms)):
+        for j in range(len(noms)):
+
+            if i != j and matrice[i, j] > 0:
+
+                paires.append((
+                    noms[i],
+                    noms[j],
+                    int(matrice[i, j])
+                ))
+
+    paires.sort(key=lambda x: x[2], reverse=True)
+
+    return paires[:k]
 
 
 @app.cell(hide_code=True)
@@ -1165,7 +1180,7 @@ def _(mo):
     résolution, modèle) proposeriez-vous pour les réduire ? Elles seraient à évaluer sur la validation, puis sur
     un nouveau jeu de test.
 
-    ...
+    Oui ces confusions sont compréhensible pour un humain surtout s'il n'est pas spécialiste des races car ces 2 races de chat se ressemblent. Pour réduire ces confusions on peut augmenter le nombre d'images d'entrainement notamment pour les races souvent confondues avec des images diversifiés. On pourrait aussi augmenter la résolution des images pour conserver les détailes du visage etc. On pourrait aussi affiner le fine-tuning deja réalisé en comparant plusieurs nombres d"etages dégelés, le taux d'apprentissage et les durées d'entrainements.
     """)
     return
 
