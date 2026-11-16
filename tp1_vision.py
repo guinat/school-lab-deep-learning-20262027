@@ -773,8 +773,18 @@ def _(mo):
 @app.function
 def geler_backbone(modele, n_etages_degeles):
     """Gèle tout sauf les n derniers étages de modele.features et modele.classifier. Renvoie le modèle."""
-    # TODO 3
-    raise NotImplementedError("À compléter")
+    for p in modele.parameters():
+        p.requires_grad = False
+
+    if n_etages_degeles > 0:
+        for etage in modele.features[-n_etages_degeles:]:
+            for p in etage.parameters():
+                p.requires_grad = True
+
+    for p in modele.classifier.parameters():
+        p.requires_grad = True
+
+    return modele
 
 
 @app.cell(hide_code=True)
@@ -800,15 +810,41 @@ def _(mo):
     return
 
 
-@app.function
-def creer_optimiseur(modele, lr_tete, lr_backbone):
-    """Renvoie un AdamW avec un learning rate pour la tête et un autre pour le backbone dégelé."""
-    # TODO 4
-    raise NotImplementedError("À compléter")
+@app.cell
+def _(torch):
+    def creer_optimiseur(modele, lr_tete, lr_backbone):
+        """Renvoie un AdamW avec un learning rate pour la tête et un autre pour le backbone dégelé."""
+        params_tete = [
+            p for p in modele.classifier.parameters()
+            if p.requires_grad
+        ]
+
+        params_backbone = [
+            p for p in modele.features.parameters()
+            if p.requires_grad
+        ]
+
+        groupes = [
+            {"params": params_tete, "lr": lr_tete}
+        ]
+
+        if params_backbone:
+            groupes.append(
+                {"params": params_backbone, "lr": lr_backbone}
+            )
+
+        optimiseur = torch.optim.AdamW(
+            groupes,
+            weight_decay=1e-4
+        )
+
+        return optimiseur
+
+    return (creer_optimiseur,)
 
 
 @app.cell(hide_code=True)
-def _(mo, ok_todo3, tests, tp):
+def _(creer_optimiseur, mo, ok_todo3, tests, tp):
     tp.bloquer_si(not ok_todo3, mo, "Terminez le TODO 3 d'abord.")
     ok_todo4, _affichage = tp.verifier(tests.tests_optimiseur(creer_optimiseur, geler_backbone), mo)
     _affichage
@@ -832,8 +868,31 @@ def _(mo):
 @app.function
 def entrainer_une_epoque(modele, chargeur, optimiseur, critere, appareil):
     """Entraîne le modèle sur un passage complet du chargeur. Renvoie la perte moyenne (float)."""
-    # TODO 5
-    raise NotImplementedError("À compléter")
+    modele.train()
+
+    perte_totale = 0.0
+    nb_exemples = 0
+
+    for x, y in chargeur:
+
+        x = x.to(appareil)
+        y = y.to(appareil)
+
+        optimiseur.zero_grad()
+
+        sorties = modele(x)
+
+        perte = critere(sorties, y)
+
+        perte.backward()
+
+        optimiseur.step()
+
+        taille_lot = x.size(0)
+        perte_totale += perte.item() * taille_lot
+        nb_exemples += taille_lot
+
+    return float(perte_totale / nb_exemples)
 
 
 @app.cell(hide_code=True)
@@ -897,6 +956,7 @@ def _(
     cfg_lr_backbone,
     cfg_lr_tete,
     classes,
+    creer_optimiseur,
     img_tr,
     img_va,
     mo,
