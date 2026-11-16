@@ -1032,12 +1032,18 @@ def _(mo):
 
     | Étages dégelés | Époques | LR tête | LR backbone | Accuracy de validation | Durée |
     |---|---|---|---|---|---|
-    | 0 | | | | | |
-    | | | | | | |
+    | 0 | 3 | 3e-3 | 3e-4 | 74.3 % | 116 s |
+    | 2 | 3 | 3e-3 | 3e-4 | 78.1 % | 151 s |
 
     Conclusion (à résolution égale, dégeler des étages vaut-il son coût par rapport à la tête seule ? Les écarts
     dépassent-ils l'incertitude de mesure ? Comment le résultat se situe-t-il par rapport au meilleur score de
     l'étape 4 ? Quelle configuration retenez-vous ?) : ...
+
+    **Conclusion :**
+
+    En comparant les deux configurations on remarque que degeler 2 etages ameliore l'accuracy de 74.3% a 78.1% soit un gain de 3.8 points. Cependant le temps d'entrainement augmente de 116 a 151 secondes. Degeler des etages semble donc apporter une amelioration mais demande davantage de calcul...
+
+    Je retiens la configuration avec 2 etages degeles car elle obtient la meilleure accuracy observee sur la validation.
     """)
     return
 
