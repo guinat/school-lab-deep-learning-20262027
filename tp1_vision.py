@@ -1225,7 +1225,31 @@ def grad_cam(modele, couche, image, classe=None):
     """image : tenseur (1, 3, H, W). Renvoie une carte numpy (h, w) dans [0, 1] pour `classe`
     (par défaut, la classe prédite)."""
     # TODO 7
-    raise NotImplementedError("À compléter")
+    activations = []
+    gradients = []
+
+    def hook(module, entree, sortie):
+        activations.append(sortie)
+        sortie.register_hook(lambda grad: gradients.append(grad))
+
+    modele.eval()
+    modele.zero_grad()
+    crochet = couche.register_forward_hook(hook)
+
+    scores = modele(image)
+    if classe is None:
+        classe = scores.argmax(dim=1).item()
+
+    scores[0, classe].backward()
+    crochet.remove()
+
+    poids = gradients[0].mean(dim=(2, 3), keepdim=True)
+    carte = (poids * activations[0]).sum(dim=1)[0]
+    carte = carte.relu()
+
+    carte = (carte - carte.min()) / (carte.max() - carte.min() + 1e-8)
+
+    return carte.detach().cpu().numpy()
 
 
 @app.cell(hide_code=True)
@@ -1267,7 +1291,7 @@ def _(mo):
     **Votre réponse :** le modèle regarde-t-il l'animal ou autre chose (fond, coussin, main) ?
     Les erreurs s'expliquent-elles par la zone regardée ?
 
-    ...
+    Pour les predictions correctes on voit par exemple une zone chaude sur le museau du Saint Bernard et sur le corps de l'Egyptian Mau, Ces zones peuvent contenir des caracteristiques utiles pour reconnaitre la race. Pour certaines erreurs les zones mise en evidences sont beaucoup moins pertinentes, par exemple sur le Wheaten Terrier la carte souligne surtout le sol devant le chien donc le modele peut utiliser des elements du decor ce qui contribut aux mauvaises predictions.
     """)
     return
 
