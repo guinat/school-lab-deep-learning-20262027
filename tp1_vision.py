@@ -1346,7 +1346,7 @@ def _(mo):
     qui somment toujours à 100 % sur les 37 races, permettent-elles de le détecter ? En service, qu'est-ce qui
     différera des images de test (photos d'utilisateurs, appareils, cadrage) ?
 
-    ...
+    Sur l'image contenant des objets le modele renvoie quand meme des races, Egyptian Mau a 13% ... les 3 resultats ne represente qu'une partie de ces 100%. Ici le score max est de 13% donc c'est assez reparti et montre bien que le model n'est pas certains il faudrait donc mettre en place un score min.
     """)
     return
 
